@@ -30,7 +30,8 @@ tileset:
     - am # Amharic
     - ar # Arabic
     - az # Azerbaijani, Latin
-    - be # Belorussian
+    - be # Belarusian
+    - be-tarask # Belarusian Taraškevica
     - bg # Bulgarian
     - br # Breton, Latin
     - bs # Bosnian, Latin

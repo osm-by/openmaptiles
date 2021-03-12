@@ -240,6 +240,7 @@ init-dirs:
 build/openmaptiles.tm2source/data.yml: init-dirs
 ifeq (,$(wildcard build/openmaptiles.tm2source/data.yml))
 	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools generate-tm2source $(TILESET_FILE) --host="postgres" --port=5432 --database="openmaptiles" --user="openmaptiles" --password="openmaptiles" > $@
+	sed -i "s/NULLIF(tags->'name:be-tarask'/NULLIF(COALESCE(tags->'name:be-tarask', tags->'name:be')/g" $@
 endif
 
 build/mapping.yaml: init-dirs
@@ -498,6 +499,8 @@ bash: init-dirs
 .PHONY: import-wikidata
 import-wikidata: init-dirs
 	$(DOCKER_COMPOSE) $(DC_CONFIG_CACHE) run $(DC_OPTS_CACHE) openmaptiles-tools import-wikidata --cache /cache/wikidata-cache.json $(TILESET_FILE)
+	$(DOCKER_COMPOSE) $(DC_CONFIG_CACHE) run $(DC_OPTS_CACHE) openmaptiles-tools psql.sh -v ON_ERROR_STOP=1 -P pager=off \
+        -c "UPDATE wd_names SET labels = labels || hstore('name:be-tarask', REGEXP_REPLACE(labels->'name:be-tarask', ' *\(.+\) *', '') ) WHERE labels->'name:be-tarask' LIKE '%(%)%';"
 
 .PHONY: reset-db-stats
 reset-db-stats: init-dirs
