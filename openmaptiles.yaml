@@ -30,7 +30,12 @@ tileset:
     - am # Amharic
     - ar # Arabic
     - az # Azerbaijani, Latin
-    - be # Belorussian
+    - be # Belarusian
+    - be:word_stress # Belarusian
+    - be-tarask # Belarusian Taraškevica
+    - be-tarask:word_stress # Belarusian Taraškevica
+    - be-latn # Belarusian Lacinka
+    - be-latn:word_stress # Belarusian Lacinka
     - bg # Bulgarian
     - bn # Bengali
     - br # Breton, Latin

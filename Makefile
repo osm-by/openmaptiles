@@ -263,7 +263,17 @@ init-dirs:
 build/openmaptiles.tm2source/data.yml: init-dirs
 ifeq (,$(wildcard build/openmaptiles.tm2source/data.yml))
 	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools bash -c \
-		'generate-tm2source $(TILESET_FILE) > $@'
+		'generate-tm2source $(TILESET_FILE) --host="$(PGHOST)" --port=$(PGPORT) --database="$(PGDATABASE)" --user="$(PGUSER)" --password="$(PGPASSWORD)" > $@'
+	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools bash -c \
+		"sed -i \"s/NULLIF(tags->'name:be:word_stress'/NULLIF(COALESCE(tags->'name:be:word_stress', tags->'name:be')/g\" ./build/openmaptiles.tm2source/data.yml"
+	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools bash -c \
+		"sed -i \"s/NULLIF(tags->'name:be-tarask'/NULLIF(COALESCE(tags->'name:be-tarask', be2be_tarask(tags->'name:be'))/g\" ./build/openmaptiles.tm2source/data.yml"
+	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools bash -c \
+		"sed -i \"s/NULLIF(tags->'name:be-tarask:word_stress'/NULLIF(COALESCE(tags->'name:be-tarask:word_stress', tags->'name:be-tarask', be2be_tarask(tags->'name:be:word_stress'), be2be_tarask(tags->'name:be'))/g\" ./build/openmaptiles.tm2source/data.yml"
+	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools bash -c \
+		"sed -i \"s/NULLIF(tags->'name:be-latn'/NULLIF(be2be_latn(COALESCE(tags->'name:be-tarask', be2be_tarask(tags->'name:be')))/g\" ./build/openmaptiles.tm2source/data.yml"
+	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools bash -c \
+		"sed -i \"s/NULLIF(tags->'name:be-latn:word_stress'/NULLIF(be2be_latn(COALESCE(tags->'name:be-tarask:word_stress', tags->'name:be-tarask', be2be_tarask(tags->'name:be:word_stress'), be2be_tarask(tags->'name:be')))/g\" ./build/openmaptiles.tm2source/data.yml"
 endif
 
 build/mapping.yaml: init-dirs
@@ -281,6 +291,16 @@ ifeq (,$(wildcard build/sql/run_last.sql))
 		&& generate-sqltomvt $(TILESET_FILE) \
 							 --key --gzip --postgis-ver 3.0.1 \
 							 --function --fname=getmvt >> ./build/sql/run_last.sql'
+	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools bash -c \
+		"sed -i \"s/NULLIF(tags->'name:be:word_stress'/NULLIF(COALESCE(tags->'name:be:word_stress', tags->'name:be')/g\" ./build/sql/run_last.sql"
+	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools bash -c \
+		"sed -i \"s/NULLIF(tags->'name:be-tarask'/NULLIF(COALESCE(tags->'name:be-tarask', be2be_tarask(tags->'name:be'))/g\" ./build/sql/run_last.sql"
+	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools bash -c \
+		"sed -i \"s/NULLIF(tags->'name:be-tarask:word_stress'/NULLIF(COALESCE(tags->'name:be-tarask:word_stress', tags->'name:be-tarask', be2be_tarask(tags->'name:be:word_stress'), be2be_tarask(tags->'name:be'))/g\" ./build/sql/run_last.sql"
+	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools bash -c \
+		"sed -i \"s/NULLIF(tags->'name:be-latn'/NULLIF(be2be_latn(COALESCE(tags->'name:be-tarask', be2be_tarask(tags->'name:be')))/g\" ./build/sql/run_last.sql"
+	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools bash -c \
+		"sed -i \"s/NULLIF(tags->'name:be-latn:word_stress'/NULLIF(be2be_latn(COALESCE(tags->'name:be-tarask:word_stress', tags->'name:be-tarask', be2be_tarask(tags->'name:be:word_stress'), be2be_tarask(tags->'name:be')))/g\" ./build/sql/run_last.sql"
 endif
 
 .PHONY: build-sprite
@@ -441,7 +461,11 @@ import-data: start-db
 .PHONY: import-sql
 import-sql: all start-db-nowait
 	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools psql.sh -v ON_ERROR_STOP=1 -P pager=off \
-	    -c "CREATE or REPLACE FUNCTION osml10n_geo_translit(name text, place geometry DEFAULT NULL) RETURNS TEXT AS ' BEGIN IF (place IS NULL) THEN return osml10n_cc_transscript(name,''aq''); ELSE return(osml10n_cc_transscript(name,NULL)); END IF; END; ' LANGUAGE plpgsql STABLE;"
+		-c "CREATE or REPLACE FUNCTION osml10n_geo_translit(name text, place geometry DEFAULT NULL) RETURNS TEXT AS ' BEGIN IF (place IS NULL) THEN return osml10n_cc_transscript(name,''aq''); ELSE return(osml10n_cc_transscript(name,NULL)); END IF; END; ' LANGUAGE plpgsql STABLE;"
+	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools psql.sh -v ON_ERROR_STOP=1 -P pager=off \
+		-f /tileset/be2be_tarask.sql
+	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools psql.sh -v ON_ERROR_STOP=1 -P pager=off \
+		-f /tileset/be2be_latn.sql
 	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools sh -c 'pgwait && import-sql' | \
     	awk -v s=": WARNING:" '1{print; fflush()} $$0~s{print "\n*** WARNING detected, aborting"; exit(1)}' | \
     	awk '1{print; fflush()} $$0~".*ERROR" {txt=$$0} END{ if(txt){print "\n*** ERROR detected, aborting:"; print txt; exit(1)} }'
@@ -566,6 +590,8 @@ bash: init-dirs
 .PHONY: import-wikidata
 import-wikidata: init-dirs
 	$(DOCKER_COMPOSE) $(DC_CONFIG_CACHE) run $(DC_OPTS_CACHE) openmaptiles-tools import-wikidata --cache /cache/wikidata-cache.json $(TILESET_FILE)
+	$(DOCKER_COMPOSE) $(DC_CONFIG_CACHE) run $(DC_OPTS_CACHE) openmaptiles-tools psql.sh -v ON_ERROR_STOP=1 -P pager=off \
+        -c "UPDATE wd_names SET labels = labels || hstore('name:be-tarask', REGEXP_REPLACE(labels->'name:be-tarask', ' *\(.+\) *', '') ) WHERE labels->'name:be-tarask' LIKE '%(%)%';"
 
 .PHONY: reset-db-stats
 reset-db-stats: init-dirs
