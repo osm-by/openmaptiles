@@ -440,6 +440,8 @@ import-data: start-db
 
 .PHONY: import-sql
 import-sql: all start-db-nowait
+	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools psql.sh -v ON_ERROR_STOP=1 -P pager=off \
+	    -c "CREATE or REPLACE FUNCTION osml10n_geo_translit(name text, place geometry DEFAULT NULL) RETURNS TEXT AS ' BEGIN IF (place IS NULL) THEN return osml10n_cc_transscript(name,''aq''); ELSE return(osml10n_cc_transscript(name,NULL)); END IF; END; ' LANGUAGE plpgsql STABLE;"
 	$(DOCKER_COMPOSE) run $(DC_OPTS) openmaptiles-tools sh -c 'pgwait && import-sql' | \
     	awk -v s=": WARNING:" '1{print; fflush()} $$0~s{print "\n*** WARNING detected, aborting"; exit(1)}' | \
     	awk '1{print; fflush()} $$0~".*ERROR" {txt=$$0} END{ if(txt){print "\n*** ERROR detected, aborting:"; print txt; exit(1)} }'
